@@ -1,0 +1,86 @@
+{
+    // Configurações de execução e depuração para Developer Store
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run API (dotnet run)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/backend/src/Ambev.DeveloperEvaluation.WebApi/bin/Debug/net8.0/Ambev.DeveloperEvaluation.WebApi.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/backend/src/Ambev.DeveloperEvaluation.WebApi",
+            "stopAtEntry": false,
+            "launchBrowser": {
+                "enabled": true,
+                "args": "http://localhost:5119/swagger",
+                "windows": {
+                    "command": "cmd.exe",
+                    "args": "/C start http://localhost:5119/swagger"
+                }
+            },
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development"
+            },
+            "console": "internalConsole"
+        },
+        {
+            "name": "Build WebApi",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/backend/src/Ambev.DeveloperEvaluation.WebApi/bin/Debug/net8.0/Ambev.DeveloperEvaluation.WebApi.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/backend/src/Ambev.DeveloperEvaluation.WebApi",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development"
+            },
+            "console": "internalConsole"
+        },
+        {
+            "name": "Rebuild WebApi",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "rebuild",
+            "program": "${workspaceFolder}/backend/src/Ambev.DeveloperEvaluation.WebApi/bin/Debug/net8.0/Ambev.DeveloperEvaluation.WebApi.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/backend/src/Ambev.DeveloperEvaluation.WebApi",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development"
+            },
+            "console": "internalConsole"
+        },
+        {
+            "name": "Testes Unitários (dotnet test)",
+            "type": "process",
+            "command": "dotnet test backend/tests/Ambev.DeveloperEvaluation.Unit/Ambev.DeveloperEvaluation.Unit.csproj",
+            "request": "launch"
+        },
+        {
+            "name": "Testes de Integração (dotnet test)",
+            "type": "process",
+            "command": "dotnet test backend/tests/Ambev.DeveloperEvaluation.Integration/Ambev.DeveloperEvaluation.Integration.csproj",
+            "request": "launch"
+        },
+        {
+            "name": "Testes Funcionais (dotnet test)",
+            "type": "process",
+            "command": "dotnet test backend/tests/Ambev.DeveloperEvaluation.Functional/Ambev.DeveloperEvaluation.Functional.csproj",
+            "request": "launch"
+        },
+        {
+            "name": "Run API (Docker Compose)",
+            "type": "process",
+            "command": "docker-compose -f backend/docker-compose.yml up --build",
+            "request": "launch"
+        },
+        {
+            "name": "Run API (Dockerfile)",
+            "type": "process",
+            "command": "docker build -t developer-store-api backend && docker run -p 5119:80 developer-store-api",
+            "request": "launch"
+        }
+    ]
+}
