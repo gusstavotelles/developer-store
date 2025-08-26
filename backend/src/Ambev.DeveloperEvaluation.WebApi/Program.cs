@@ -70,6 +70,13 @@ public class Program
 
             app.MapControllers();
 
+            // Apply EF Core migrations automatically on startup (development convenience)
+            using (var scope = app.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<DefaultContext>();
+                db.Database.Migrate();
+            }
+
             app.Run();
         }
         catch (Exception ex)
