@@ -9,11 +9,11 @@ using Ambev.DeveloperEvaluation.WebApi.Features.Sales.Responses;
 
 namespace Ambev.DeveloperEvaluation.Integration
 {
-    public class SalesIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+    public class SalesIntegrationTests : IClassFixture<CustomWebApplicationFactory>
     {
         private readonly HttpClient _client;
 
-        public SalesIntegrationTests(WebApplicationFactory<Program> factory)
+        public SalesIntegrationTests(CustomWebApplicationFactory factory)
         {
             _client = factory.CreateClient();
         }

@@ -4,8 +4,8 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using Ambev.DeveloperEvaluation.ORM;
-using Microsoft.Extensions.Configuration;
 using System.Linq;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Ambev.DeveloperEvaluation.Integration
 {
@@ -18,18 +18,9 @@ namespace Ambev.DeveloperEvaluation.Integration
         {
             builder.ConfigureServices(services =>
             {
-                // Remove existing DbContext registrations
-                var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<DefaultContext>));
-                if (descriptor != null)
-                {
-                    services.Remove(descriptor);
-                }
-
-                var ctxDescriptor = services.SingleOrDefault(d => d.ImplementationType == typeof(DefaultContext) || d.ServiceType == typeof(DefaultContext));
-                if (ctxDescriptor != null)
-                {
-                    services.Remove(ctxDescriptor);
-                }
+                // Remove existing DbContext registrations (all descriptors)
+                services.RemoveAll(typeof(DbContextOptions<DefaultContext>));
+                services.RemoveAll(typeof(DefaultContext));
 
                 // Add InMemory DbContext for tests
                 services.AddDbContext<DefaultContext>(options =>
