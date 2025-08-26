@@ -41,10 +41,9 @@ namespace Ambev.DeveloperEvaluation.Integration
                 Assert.True(false, $"Create failed: {(int)createResponse.StatusCode} {createResponse.StatusCode}. Response body: {content}");
             }
 
-            var created = await createResponse.Content.ReadFromJsonAsync<dynamic>();
-            Assert.NotNull(created.id.ToString());
-
-            string id = created.id.ToString();
+            var createdJson = await createResponse.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+            var id = createdJson.GetProperty("id").GetString();
+            Assert.False(string.IsNullOrEmpty(id));
 
             var getResponse = await _client.GetAsync($"/api/sales/{id}");
             if (getResponse.StatusCode != HttpStatusCode.OK)
