@@ -33,7 +33,13 @@ namespace Ambev.DeveloperEvaluation.Integration
             };
 
             var createResponse = await _client.PostAsJsonAsync("/api/sales", createRequest);
-            Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+            if (createResponse.StatusCode != HttpStatusCode.Created)
+            {
+                var content = await createResponse.Content.ReadAsStringAsync();
+                // Fail the test with the response content to get the server error details.
+                Assert.True(false, $"Create failed: {(int)createResponse.StatusCode} {createResponse.StatusCode}. Response body: {content}");
+            }
 
             var created = await createResponse.Content.ReadFromJsonAsync<dynamic>();
             Assert.NotNull(created.id.ToString());
@@ -41,7 +47,11 @@ namespace Ambev.DeveloperEvaluation.Integration
             string id = created.id.ToString();
 
             var getResponse = await _client.GetAsync($"/api/sales/{id}");
-            Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+            if (getResponse.StatusCode != HttpStatusCode.OK)
+            {
+                var content = await getResponse.Content.ReadAsStringAsync();
+                Assert.True(false, $"Get failed: {(int)getResponse.StatusCode} {getResponse.StatusCode}. Response body: {content}");
+            }
 
             var sale = await getResponse.Content.ReadFromJsonAsync<SaleResponse>();
             Assert.Equal("T001", sale.SaleNumber);
