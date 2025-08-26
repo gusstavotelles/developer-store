@@ -42,7 +42,7 @@ namespace Ambev.DeveloperEvaluation.Domain.Entities
         public void AddItem(SaleItem item)
         {
             if (item == null) throw new ArgumentNullException(nameof(item));
-            if (item.Quantity > 20) throw new DomainException("Quantidade máxima por item é 20.");
+            if (item.Quantity > 20) throw new DomainException("Maximum quantity per item is 20.");
             item.ApplyDiscountAndCalculateTotal();
             _items.Add(item);
             RecalculateTotal();
