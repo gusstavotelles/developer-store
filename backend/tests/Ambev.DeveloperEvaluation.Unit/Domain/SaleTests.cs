@@ -48,10 +48,8 @@ namespace Ambev.DeveloperEvaluation.Unit.Domain
         [Fact]
         public void AddItem_WithQuantityAbove20_ThrowsDomainException()
         {
-            var sale = new Sale("S004", DateTimeOffset.UtcNow, "C1", "B1");
-            var item = new SaleItem("P1", "Product 1", 5m, 21);
-
-            Assert.Throws<DomainException>(() => sale.AddItem(item));
+            // The constructor validates and will throw when quantity > 20.
+            Assert.Throws<DomainException>(() => new SaleItem("P1", "Product 1", 5m, 21));
         }
 
         [Fact]
