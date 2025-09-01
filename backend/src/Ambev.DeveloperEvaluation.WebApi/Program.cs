@@ -9,6 +9,7 @@ using Ambev.DeveloperEvaluation.WebApi.Middleware;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+using Microsoft.OpenApi.Models;
 
 namespace Ambev.DeveloperEvaluation.WebApi;
 
@@ -27,7 +28,30 @@ public class Program
             builder.Services.AddEndpointsApiExplorer();
 
             builder.AddBasicHealthChecks();
-            builder.Services.AddSwaggerGen();
+            builder.Services.AddSwaggerGen(c =>
+            {
+                // Configure Swagger to support JWT Bearer authentication in the UI
+                c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+                {
+                    Name = "Authorization",
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "bearer",
+                    BearerFormat = "JWT",
+                    In = ParameterLocation.Header,
+                    Description = "Enter 'Bearer' [space] and then your valid token in the text input below.\r\n\r\nExample: \"Bearer eyJhbGciOi...\""
+                });
+
+                c.AddSecurityRequirement(new OpenApiSecurityRequirement
+                {
+                    {
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+                        },
+                        Array.Empty<string>()
+                    }
+                });
+            });
 
             builder.Services.AddDbContext<DefaultContext>(options =>
                 options.UseNpgsql(
@@ -71,10 +95,14 @@ public class Program
             app.MapControllers();
 
             // Apply EF Core migrations automatically on startup (development convenience)
-            using (var scope = app.Services.CreateScope())
+            // Skip migrations when SKIP_MIGRATIONS env var is set to "true" (useful for local debugging)
+            if (Environment.GetEnvironmentVariable("SKIP_MIGRATIONS") != "true")
             {
-                var db = scope.ServiceProvider.GetRequiredService<DefaultContext>();
-                db.Database.Migrate();
+                using (var scope = app.Services.CreateScope())
+                {
+                    var db = scope.ServiceProvider.GetRequiredService<DefaultContext>();
+                    db.Database.Migrate();
+                }
             }
 
             app.Run();
