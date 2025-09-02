@@ -1,208 +1,162 @@
-# Developer Store — Local Execution & Authorization Guide (EN)
+# Developer Store — Local Execution, Architecture & Guidelines (EN)
 
-This repository contains the Developer Store technical challenge: an ASP.NET Core Web API (NET 8) for user registration, authentication and management.
-
-This document explains, in detail, how to run the API locally (Visual Studio or CLI), how to run only the dependencies using Docker, and how to authenticate and use the Swagger UI with JWT (Authorize).
+This repository contains the Developer Store technical challenge: an ASP.NET Core Web API (.NET 8) for user registration, authentication and sales management. Below you will find runnable instructions, architecture & design rationale, tools used and notes to help understand the project and reproduce the verification flows.
 
 ---
 
+## Project overview
 
-## Quick summary
-
-- Project root: `backend/`
-- API project: `backend/src/Ambev.DeveloperEvaluation.WebApi`
-- New Docker file with only dependencies: `backend/docker-compose.deps.yml`
-- The API is intended to be run locally (Visual Studio or dotnet run) while Postgres/Mongo/Redis can run as Docker containers.
+- Purpose: implement a small but realistic backend demonstrating domain modeling, validation, authentication (JWT), persistence, tests and documentation (Swagger).
+- Scope: Users (register/auth) and Sales (create, list, get, cancel) with business rules (discounts, quantity limits).
+- Location: API project is `backend/src/Ambev.DeveloperEvaluation.WebApi` and solution root is `backend/Ambev.DeveloperEvaluation.sln`.
 
 ---
 
-## Prerequisites
+## How to run (quick)
 
-- .NET 8 SDK installed
-- Docker and Docker Compose installed (only for dependencies)
-- Visual Studio 2022/2023 or VS Code (if you use Visual Studio, recommended: open the solution file `backend/Ambev.DeveloperEvaluation.sln`)
+1. Start dependencies:
+   - cd backend
+   - docker-compose -f docker-compose.deps.yml up -d
+2. Run API locally:
+   - cd backend/src/Ambev.DeveloperEvaluation.WebApi
+   - dotnet run
+3. Swagger UI:
+   - http://localhost:5119/swagger (or https://localhost:7181/swagger)
 
----
-
-## 1) Start only the dependencies with Docker
-
-We provide a lightweight compose file containing only the database/cache services.
-
-From repository root:
-
-cd backend
-docker-compose -f docker-compose.deps.yml up -d
-
-This will start:
-- PostgreSQL (container name: `ambev_developer_evaluation_database`) → port 5432
-- MongoDB (container name: `ambev_developer_evaluation_nosql`) → port 27017
-- Redis (container name: `ambev_developer_evaluation_cache`) → port 6379 (requires password)
-
-Verify containers with:
-docker ps
-
-If you prefer, the original `docker-compose.yml` was adjusted to only include dependencies as well. Use `docker-compose up -d` from `backend` if you want to use that file.
+Detailed run instructions and troubleshooting are in the README sections below.
 
 ---
 
-## 2) Run the API locally (Visual Studio)
+## Architecture & design decisions
 
-Recommended: run the API locally and use Docker only for dependencies. This is what the reviewers will likely expect.
+This project follows a layered/clean architecture approach with clear separation of responsibilities:
 
-1. Open Visual Studio.
-2. File → Open → Project/Solution → select `backend/Ambev.DeveloperEvaluation.sln`.
-3. In Solution Explorer, right-click `Ambev.DeveloperEvaluation.WebApi` → Set as Startup Project.
-4. Select the run profile (top toolbar): choose `https` or `http` (profiles are pre-configured).
-   - Profiles already include a `ConnectionStrings__DefaultConnection` environment variable pointing to the local Docker Postgres:
-     Host=localhost;Port=5432;Database=developer_evaluation;Username=developer;Password=ev@luAt10n
-5. Press F5 (Debug) or Ctrl+F5 (Run).
-6. When the app starts, Swagger UI will open automatically:
-   - http://localhost:5119/swagger or https://localhost:7181/swagger
+- Domain layer
+  - Entities, value objects, domain validation and domain-specific exceptions live here.
+  - Contains business rules and domain validators (e.g. phone, password, email).
+- Application layer
+  - Implements use-cases as commands/handlers (MediatR based).
+  - Each feature exposes a Command/Handler/Result/Validator set.
+  - Keeps orchestration, mapping and application validation separate from persistence.
+- Infrastructure/ORM
+  - Entity Framework Core (Npgsql provider) implementation.
+  - Repositories (UserRepository, SaleRepository) encapsulate database access.
+  - Migrations live under ORM project so schema is versioned.
+- WebApi layer
+  - Controllers, request/response DTOs, AutoMapper profiles, middleware and Swagger configuration.
+  - Handles HTTP concerns and maps DTOs to application commands.
+- IoC / Module initializers
+  - All DI registrations are centralized into module initializers for each module (Application, Infrastructure, WebApi).
+  - This keeps Program.cs focused and makes testing easier.
 
-Notes:
-- The app applies EF Core migrations automatically on startup by default. If you want to skip migrations and apply them manually, set the environment variable `SKIP_MIGRATIONS=true` for the run profile or in your environment, and then run:
-  cd backend/src/Ambev.DeveloperEvaluation.WebApi
-  dotnet ef database update
-
----
-
-## 3) Run the API locally (CLI)
-
-If you prefer to run the API from a terminal:
-
-Open a terminal and run:
-
-cd backend\src\Ambev.DeveloperEvaluation.WebApi
-set "ConnectionStrings__DefaultConnection=Host=localhost;Port=5432;Database=developer_evaluation;Username=developer;Password=ev@luAt10n"
-set "ASPNETCORE_ENVIRONMENT=Development"
-dotnet run --urls "http://localhost:5119;https://localhost:7181"
-
-After startup Swagger will be available at:
-http://localhost:5119/swagger
+Why this structure:
+- Testability: handlers and services can be unit-tested without HTTP/persistence.
+- Maintainability: small, focused classes & projects make changes localized.
+- Familiar patterns: MediatR + validators + DTO mapping are common patterns that aid readability.
 
 ---
 
-## 4) How authentication works (short)
+## Patterns, libraries and tools used
 
-- The API uses JWT tokens.
-- The login endpoint (POST `/api/Auth`) returns a JSON response with authentication data. The application layer returns a result object that contains a `Token` property (the JWT).
-- The WebApi wraps responses using `ApiResponseWithData<T>` — so the token is available at `response.data.token` (or `response.data.Token` depending on your client).
-- All protected endpoints require the header:
-  Authorization: Bearer {token}
-
----
-
-## 5) Step-by-step: create a user, authenticate, use Authorization in Swagger
-
-1) Create a user (example JSON)
-- Endpoint: POST /api/Users
-- Example body:
-{
-  "username": "testuser",
-  "password": "Password@123",
-  "phone": "(11) 98765-4321",
-  "email": "test.user@example.com",
-  "status": 1,
-  "role": 1
-}
-
-You can create the user using Swagger `POST /api/Users` (Try it out) or using curl:
-
-curl -X POST "http://localhost:5119/api/Users" -H "Content-Type: application/json" -d ^
-"{\"username\":\"testuser\",\"password\":\"Password@123\",\"phone\":\"(11) 98765-4321\",\"email\":\"test.user@example.com\",\"status\":1,\"role\":1}"
-
-Response: 201 Created on success.
-
-2) Authenticate (get token)
-- Endpoint: POST /api/Auth
-- Example body:
-{
-  "email": "test.user@example.com",
-  "password": "Password@123"
-}
-
-Using curl:
-
-curl -X POST "http://localhost:5119/api/Auth" -H "Content-Type: application/json" -d ^
-"{\"email\":\"test.user@example.com\",\"password\":\"Password@123\"}"
-
-Typical response body (wrapped):
-{
-  "success": true,
-  "message": "User authenticated successfully",
-  "data": {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "id": "GUID",
-    "name": "testuser",
-    "email": "test.user@example.com",
-    "phone": "...",
-    "role": "..."
-  }
-}
-
-Take the value of `data.token` (the JWT).
-
-3) Use "Authorize" in Swagger
-- Open http://localhost:5119/swagger
-- Click the "Authorize" button (lock icon).
-- In the input labeled `Bearer` paste the token value, prefixed with "Bearer ":
-  Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6...
-- Click "Authorize" → Close.
-- Swagger will now attach the Authorization header for requests made in the UI.
-
-4) Example curl call to protected endpoint:
-
-curl -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6..." http://localhost:5119/api/Users/me
+- .NET 8 / ASP.NET Core Web API — platform and framework.
+- MediatR — decoupled request/handler pattern for use-cases (commands & queries).
+- FluentValidation — request and domain validation.
+- AutoMapper — map between DTOs / commands / results / entities.
+- Entity Framework Core (Npgsql) — relational persistence with migrations.
+- Serilog — structured logging.
+- xUnit — unit, integration and functional tests.
+- Docker + Docker Compose — run PostgreSQL, MongoDB, Redis as dependencies.
+- Swagger (Swashbuckle) — interactive API documentation and testing (JWT Authorize integrated).
+- BCrypt — password hashing (via IPasswordHasher implementation).
+- JWT — token-based authentication (JwtTokenGenerator).
 
 ---
 
-## 6) Troubleshooting
+## Key implementation details & rationale
 
-- If the API fails to connect to Postgres:
-  - Ensure the dependencies are started: `cd backend && docker-compose -f docker-compose.deps.yml up -d`
-  - Verify container state: `docker ps`
-  - Check Postgres logs: `cd backend && docker-compose logs --tail=200 ambev.developerevaluation.database`
-  - Check port availability (Windows): `netstat -a -n | findstr 5119`
+- Authentication
+  - JWT tokens issued by JwtTokenGenerator. Expiry and signing configured via appsettings or environment.
+  - Passwords hashed with BCrypt before storing.
+  - Swagger configured with a Bearer security definition so the UI can perform authorized calls.
 
-- If Swagger shows "Failed to fetch" when calling an endpoint (common during Try it out / POST):
-  - Cause: the application is configured with HTTPS redirection (the server redirects HTTP requests to HTTPS). Swagger UI loaded over HTTP may trigger a redirect (307) which the browser's fetch can block or fail. The browser will also block mixed-content if the UI is loaded via HTTPS and the request targets HTTP.
-  - Quick fix:
-    1. Open the HTTPS Swagger endpoint directly in your browser:
-       https://localhost:7181/swagger
-    2. If the browser warns about an invalid/self-signed certificate, click "Advanced" → proceed to the site (or add a security exception). This allows the Swagger UI to make requests to the same scheme without redirection issues.
-    3. Retry the request (Try it out) or use the "Authorize" modal and then call protected endpoints.
-  - Alternative:
-    - Use a terminal client (curl) that ignores cert validation for quick testing:
-      curl -k -X POST "https://localhost:7181/api/Auth" -H "Content-Type: application/json" -d '{"email":"test.user@example.com","password":"Password@123"}'
-    - Or ensure you use the correct scheme that the server expects (HTTPS) and match the port.
+- Validation
+  - FluentValidation used at both request DTO level and domain/application layers.
+  - Duplicate email during user creation is surfaced as a validation error (400) with field-level details.
 
-- Migrations failing:
-  - Option: set SKIP_MIGRATIONS=true environment variable for the run profile and apply migrations manually:
-    cd backend/src/Ambev.DeveloperEvaluation.WebApi
-    dotnet ef database update
+- Database migrations
+  - EF Core migrations are applied automatically on startup by default for convenience.
+  - To skip automatic migrations (for debugging), set environment variable `SKIP_MIGRATIONS=true`.
 
----
+- Tests
+  - Unit tests cover domain and application logic.
+  - Integration tests use WebApplicationFactory with an InMemory provider when appropriate.
+  - Functional tests exercise end-to-end flows; they may require Docker dependencies.
 
-## 7) Running tests
+- Sales business rules (implemented)
+  - Quantity-based discounts applied at the application layer (e.g., 4+ units => 10% off) and enforced during sale creation.
 
-From repository root:
-
-cd backend
-dotnet test
-
-Note: Integration/functional tests might also expect dependencies to be running in Docker.
+- Separation of concerns
+  - Controllers validate requests and forward commands to MediatR handlers.
+  - Mapping and response shaping are handled by AutoMapper profiles.
+  - Domain layer remains independent from infrastructure concerns.
 
 ---
 
-## 8) For evaluators
+## Security considerations
 
-- Start dependencies
-- Run the WebAPI locally (Visual Studio preferred)
-- Use Swagger to create a user → authenticate → press Authorize with the token → test protected endpoints
-- The repository applies migrations automatically on startup; the flow should work out-of-the-box if Docker is running and ports are available.
+- Password hashing with BCrypt to avoid storing plain passwords.
+- Tokens are signed using a configured secret (check appsettings). Use environment variables or a secret manager in production.
+- Input validation is enforced to avoid invalid domain states.
+- HTTPS recommended for production; use `dotnet dev-certs https --trust` for local development.
 
 ---
 
-If you want, I will:
-- Add screenshots showing the exact flow inside Swagger.
-- Or run a quick curl auth here and paste the token (requires your confirmation).
+## Observability & logging
+
+- Serilog integration for structured logs.
+- Domain events are published to a LoggerEventPublisher (replaceable with a real bus).
+- Health checks registered at `/health`.
+
+---
+
+## Developer experience
+
+- `backend/docker-compose.deps.yml` provides required database/cache services to run locally while keeping the API running natively with `dotnet run`.
+- The project includes a verification script used during development; it is not tracked in the repository.
+- Clear run instructions are provided for both Visual Studio and CLI.
+
+---
+
+## Testing & verification
+
+- Run all tests:
+  - cd backend
+  - dotnet test
+- To reproduce a verification flow:
+  - Start Docker dependencies
+  - Start the API (`dotnet run`)
+  - Use Swagger or the provided curl examples to create a user, authenticate and exercise protected endpoints.
+- A summary of an automated verification run is available in `docs/EVIDENCE.md`.
+
+---
+
+## Deployment notes
+
+- For production, configure a secure secret key provider for JWT signing (e.g. vault / environment variables).
+- Prefer managed databases and caches for production deployments; use orchestration (Kubernetes) when necessary.
+- Consider token rotation and refresh mechanisms for long-lived sessions.
+
+---
+
+## Contributing / Code structure
+
+- Projects:
+  - backend/src/Ambev.DeveloperEvaluation.Domain
+  - backend/src/Ambev.DeveloperEvaluation.Application
+  - backend/src/Ambev.DeveloperEvaluation.ORM
+  - backend/src/Ambev.DeveloperEvaluation.WebApi
+  - backend/src/Ambev.DeveloperEvaluation.IoC
+- Patterns to follow:
+  - Add a Command/Handler/Validator/Result for new features in Application.
+  - Add mapping profiles in WebApi/Mappings.
+  - Write unit tests for handlers and integration tests for flows.

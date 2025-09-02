@@ -198,15 +198,43 @@ Observação: os testes de integração/funcionais podem depender de serviços D
 
 ---
 
-## 8) Para avaliadores
+## 8) Orientações
 
 - Suba as dependências
-- Rode a WebAPI localmente (preferível pelo Visual Studio)
-- Use o Swagger para criar um usuário → autenticar → pressione Authorize com o token → teste endpoints protegidos
+- Rode a WebAPI localmente (Visual Studio preferido)
+- Use Swagger para criar um usuário → autenticar → pressione Authorize com o token → testar endpoints protegidos
 - O repositório aplica migrations automaticamente no startup; o fluxo deve funcionar "out-of-the-box" se o Docker estiver em execução e as portas estiverem disponíveis.
 
 ---
 
-Se quiser, eu:
-- Adiciono screenshots mostrando o fluxo exato dentro do Swagger.
-- Ou executo aqui um curl de autenticação e colo o token (requer sua autorização).
+## Arquitetura, escolhas e justificativas 
+
+Este projeto segue abordagem em camadas (clean / layered architecture) para separar responsabilidades:
+
+- Camada Domain
+  - Contém entidades, validadores de domínio e regras de negócio.
+- Camada Application
+  - Implementa casos de uso com MediatR (Command/Handler), validações e mapeamentos de DTO.
+- Infra / ORM
+  - EF Core (Npgsql) com repositórios que encapsulam acesso a banco.
+- WebApi
+  - Controllers, DTOs, Perfis AutoMapper, middleware e configuração do Swagger/JWT.
+- IoC / Module initializers
+  - Registro de dependências centralizado para manter Program.cs limpo.
+
+Racional:
+- Testabilidade: handlers e repositórios são fáceis de testar isoladamente.
+- Manutenibilidade: projetos pequenos e com responsabilidades claras.
+- Padrões reconhecíveis: MediatR + FluentValidation + AutoMapper facilitam avaliação técnica.
+
+Principais decisões técnicas e ferramentas
+- JWT para autenticação; BCrypt para hashing de senha.
+- FluentValidation em diferentes camadas para fornecer mensagens claras em 400 Bad Request.
+- Swagger com definition de Bearer para testar endpoints protegidos via UI.
+- Scripts e compose separados: `docker-compose.deps.yml` para dependências, mantendo a API rodando localmente por dotnet run.
+
+Observações de segurança e operação
+- Não comitar segredos; configurar variáveis de ambiente para produção.
+- HTTPS recomendado em produção e dev-certs para desenvolvimento local.
+- Migrations automáticas são conveniência; para ambiente controlado use `SKIP_MIGRATIONS=true` e aplique migrations manualmente.
+
