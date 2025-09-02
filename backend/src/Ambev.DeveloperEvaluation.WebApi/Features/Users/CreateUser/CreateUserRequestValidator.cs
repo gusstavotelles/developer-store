@@ -26,7 +26,9 @@ public class CreateUserRequestValidator : AbstractValidator<CreateUserRequest>
         RuleFor(user => user.Email).SetValidator(new EmailValidator());
         RuleFor(user => user.Username).NotEmpty().Length(3, 50);
         RuleFor(user => user.Password).SetValidator(new PasswordValidator());
-        RuleFor(user => user.Phone).Matches(@"^\+?[1-9]\d{1,14}$");
+        RuleFor(user => user.Phone)
+            .Matches(@"(^\+?[1-9]\d{1,14}$)|(^\(?\d{2}\)?\s?\d{4,5}-\d{4}$)")
+            .WithMessage("The phone format is not valid.");
         RuleFor(user => user.Status).NotEqual(UserStatus.Unknown);
         RuleFor(user => user.Role).NotEqual(UserRole.None);
     }
