@@ -10,10 +10,11 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Microsoft.OpenApi.Models;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace Ambev.DeveloperEvaluation.WebApi;
 
-public class Program
+public partial class Program
 {
     public static void Main(string[] args)
     {
@@ -101,7 +102,11 @@ public class Program
                 using (var scope = app.Services.CreateScope())
                 {
                     var db = scope.ServiceProvider.GetRequiredService<DefaultContext>();
-                    db.Database.Migrate();
+                    // Only run migrations when using a relational provider (InMemory used by integration tests will skip)
+                    if (db.Database.IsRelational())
+                    {
+                        db.Database.Migrate();
+                    }
                 }
             }
 
@@ -110,6 +115,7 @@ public class Program
         catch (Exception ex)
         {
             Log.Fatal(ex, "Application terminated unexpectedly");
+            throw;
         }
         finally
         {
